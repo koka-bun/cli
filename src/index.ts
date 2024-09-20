@@ -9,5 +9,6 @@ yargs(hideBin(process.argv))
     }).command('clean', 'Clean the project', () => { }, async () => {
         await clean();
     })
+    .showHelpOnFail(false)
     .demandCommand(1)
     .parse();
