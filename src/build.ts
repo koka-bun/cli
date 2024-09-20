@@ -55,15 +55,18 @@ export async function build() {
     await $`koka ${kokaArgs}`;
 
     const typescriptFiles =
-        (await Promise.all(kokaBunProjects.map((project) =>
+        (await Promise.all(kokaBunProjects.map((project) => 
             $`find ${project} -name '*.ts'`.text()
                 .then(output => output
                     .split('\n')
-                    .filter((path) => !!path && !path.startsWith('./node_modules') && !path.startsWith('./dist'))
-                    .map(file => path.join(project, file))
+                    .filter(Boolean)
+                    .map((p) => [project, path.relative(project, p)])
+                    .filter(([_, p]) => {
+                        return !p.startsWith('node_modules') && !p.startsWith('dist')
+                    })
         )))).flat();
 
-    const external = typescriptFiles.map(file => path.resolve(path.join('.koka', 'js', file)));
+    const external = typescriptFiles.map(([_, p]) => path.resolve(path.join('.koka', 'js', p)));
 
     const output = await Bun.build({
         entrypoints: ['.koka/js/kb-main.mjs'],
@@ -79,8 +82,8 @@ export async function build() {
 
     await $`mkdir -p dist`;
 
-    for (const file of typescriptFiles) {
+    for (const [project, file] of typescriptFiles) {
         await $`mkdir -p dist/${path.dirname(file)}`;
-        await $`cp ${file} dist/${file}`;
+        await $`cp ${path.join(project, file)} dist/${file}`;
     }
 }
