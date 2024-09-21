@@ -45,14 +45,18 @@ export async function build() {
 
     const kokaArgs = [
         '--target=jsnode',
-        '--output=.koka/js/kb-main',
-        '--outputdir=.koka/js',
+        '--output=dist/kb-main',
+        '--outputdir=dist',
         `--include=${root}`,
         ...include.map(path => `--include=${path}`),
         main
     ];
 
-    await $`koka ${kokaArgs}`;
+    try {
+        await $`koka ${kokaArgs}`.verbose();
+    } catch (e) {
+        process.exit(1);
+    }
 
     const typescriptFiles =
         (await Promise.all(kokaBunProjects.map((project) => 
@@ -66,12 +70,14 @@ export async function build() {
                     })
         )))).flat();
 
-    const external = typescriptFiles.map(([_, p]) => path.resolve(path.join('.koka', 'js', p)));
+    for (const [project, file] of typescriptFiles) {
+        await $`mkdir -p dist/${path.dirname(file)}`;
+        await $`cp ${path.join(project, file)} dist/${file}`;
+    }
 
     const output = await Bun.build({
-        entrypoints: ['.koka/js/kb-main.mjs'],
-        external,
-        naming: 'main.js',
+        entrypoints: ['dist/kb-main.mjs'],
+        naming: 'kb-bundle.js',
         outdir: 'dist',
     });
 
@@ -80,10 +86,5 @@ export async function build() {
         process.exit(1);
     }
 
-    await $`mkdir -p dist`;
-
-    for (const [project, file] of typescriptFiles) {
-        await $`mkdir -p dist/${path.dirname(file)}`;
-        await $`cp ${path.join(project, file)} dist/${file}`;
-    }
+    await $`rm dist/*.kki`;
 }
